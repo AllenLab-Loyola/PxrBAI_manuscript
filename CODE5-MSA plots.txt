@@ -1,0 +1,79 @@
+##############################################################################################
+##############################################################################################
+#########################################     MSA Plots   ####################################
+##############################################################################################
+##############################################################################################
+
+##########
+##STEP 1 #
+##########
+#### Run Muscle in terminal to create the MSA
+#### <code below>
+
+% /Users/jonathanallen/bin/muscle -i querysequences.txt -o querysequences.aln.txt -clw
+
+##########
+##STEP 2 #
+##########
+#### Run in R Studio
+#### <code below>
+
+#LOAD LIBRARIES AND NECESSARY UTILITIES----
+library(ggplot2)
+library(ggmsa)
+library(ggtree)
+library(msa)
+library(seqinr)
+library(ape)
+library(reshape2)
+library(ggh4x)
+
+#These have to be run because of a tidytree issue
+nodeid.tbl_tree <- utils::getFromNamespace("nodeid.tbl_tree", "tidytree")
+rootnode.tbl_tree <- utils::getFromNamespace("rootnode.tbl_tree", "tidytree")
+offspring.tbl_tree <- utils::getFromNamespace("offspring.tbl_tree", "tidytree")
+offspring.tbl_tree_item <- utils::getFromNamespace(".offspring.tbl_tree_item", "tidytree")
+child.tbl_tree <- utils::getFromNamespace("child.tbl_tree", "tidytree")
+parent.tbl_tree <- utils::getFromNamespace("parent.tbl_tree", "tidytree")
+
+
+#LOAD MSA, GENERATE DISTANCE MATRIX, AND CREATE TREE FILE----
+rhsfasta<-"querysequences.aln.txt"
+myaln<-readAAMultipleAlignment("querysequences.aln.txt")
+d=seqinr::dist.alignment(msaConvert(myaln,"seqinr::alignment"))
+as.matrix(d)
+rhstree<-nj(d)
+
+#generate tidy data of MSA for final msaplot
+datas=tidy_msa(rhsfasta) 
+
+
+#NODE ID AND RE-ROOT----
+ggtree(rhstree)+ geom_tiplab(size=3,offset=.05)+geom_text(aes(label=node), hjust=-.3) # view node labels
+plot(rhstree)
+plot(root(rhstree,1)) # plot the rooted tree at node 22
+rhstree.root<-root(rhstree,1) # generate the rooted tree
+
+#generate dataframe for nodes to hilight
+nodedat<-data.frame(node=c(57,58,59,62,63,66),type=c("A","B","C","D","E","F"))
+#GENERATE PLOT----
+
+#create the tree
+p<-ggtree(rhstree, linewidth=.1)+geom_tiplab(size=2.5)+geom_treescale(x=.01, y=38.5, fontsize=3, linesize=.1)+
+geom_hilight(node=59, fill="cornflowerblue", extendto=.7, alpha=.5)+
+geom_hilight(node=62, fill="coral2", extendto=.7, alpha=.5)+
+geom_hilight(node=66, fill="darkseagreen4", extendto=.7, alpha=.5)+
+geom_hilight(node=57, fill="coral4", extendto=.7, alpha=.5)+
+geom_hilight(node=58, fill="darkkhaki", extendto=.7, alpha=.5)+
+geom_hilight(node=63, fill="cornsilk4", extendto=.7, alpha=.5)
+
+
+#add the MSA
+p2<-p+geom_facet(geom = geom_msa, data = datas,  panel = 'msa',font = NULL, color = "Chemistry_AA", border=FALSE,width=1) + xlim_tree(.65)+
+  geom_facet(geom = geom_text, data = datas, panel = 'msa', mapping = aes(x = position, label = character), size=2.5)+scale_x_continuous(expand = c(0,0)) + 
+  scale_y_continuous(expand = c(0,0)) #scale_continuous fills the panel with the data
+
+p2+force_panelsizes(cols=c(1, 4), total_height=unit(10,"cm"))
+#adjust the panel sizes
+facet_widths(p2, widths=c(1,4))
+force_panelsizes(p2,total_height = 5)

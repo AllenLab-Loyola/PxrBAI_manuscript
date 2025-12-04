@@ -1,0 +1,219 @@
+##############################################################################################
+##############################################################################################
+#############################   Determining PxrBAI diversity   ###############################
+##############################################################################################
+##############################################################################################
+
+
+####BLAST Pipeline to Identify pxrA alleles
+
+##########
+##STEP 1##
+##########
+####Run this in terminal
+####BLAST using 2000nt of pxrA (pxrAcore.txt)
+
+% python3 ./bin/blastscript.py /Users/jonathanallen/Documents/genomes/fasta/PAcomplete /Users/jonathanallen/Desktop/pxr_allele_ID/pxrCcore.txt /Users/jonathanallen/Desktop/pxr_allele_ID/pxrCcore.BLAST.txt 90 90
+
+>pxrA.core
+ATGCGCATCCCCCCATACTTCCCCCGTCTCGGCGCCCTCGCCCTGGCCTGTGCCCTCGCCCTGCCCGCGCAGGCGGCCGAGCGCGCCTGGAGCTACAGCTACAACGCCCTCGGCCTGATCGAGCGCGCCGACGGTCCGCGCACCGATGTGCAGGACGTCACCCTCTATGCCTACGACAGTCGCGGCAACCTGACCCAGGTGACCAACGCCCTCGGCCAGGTCACCCGCCTCGGCGACTATGACGAGCGCGGCAAGCCCGGCAGCATCACCGATGCCAACGGCGTCACCAGCAGCCTCGCCTACACCGGCGTCGACGGCTGGCTGGCCTCCGTCAGCACCGCCGGCAGCACCACCCGCTTCGACTACGACGCGGTCGGCCAGATCACCCGCGTCACCCGTGGCGACGGCAGTTGGCTGAGCTACGAATACGACGACGCACGGCGCCTGGTGGCGATCGGCAACAACCTCGGCGAACGCCTCGAATACGACGTCGACACCAAGGGCAATCGCACCGCCCAGCGCATCAAGGACGCCAGCGGCAGCCTGGTGCGCCAGCAGCAATGGGCCTACGACGAGCTTGGCCGGCTGCTCCGTGCGGTCGGCGCCGGCGGCCAGACACGCAGCTTCGCCTACGACCTCAACGACAATCCGGTCGGCGAAACCAACCCGCGCCAGTTCGCCCACAGCCAGGCCTTCGACGCCCTCGACCGGCTGGTCGGCCAGAGCGATCCTCTCGGCGGCAAGACCCAACTCGCCTACGACGCCCAGGACAACCTCACCGAGGTCAAGGACCCGCGCGGCGTCACCACCCGCTACGAATACGACGGCCTCGGCAACCTGACCCGACTGGTCAGCCCGGACAGCGGCACCACCACCTTCGAGCACGACGCCGCCGGCAACGTCATCCGCCGCACCGACGCTCGCGGTGCGGTCACCGAGTATCGCTACGACGCCCTCAATCGCCTGATCGAGCGCCACTCGCCGAGCGACCCGAGCCTCGACGTACAGTACCGCTACGACCTCACCGCCGACGGCAACAAAGGCATCGGCCGCCTGGGCGCCATCGAAGGTGCCCGCGACAGCCTGGTGTACCGCTACGACGAGCGCGGCAACCTGGTCGAGCAGGTACGCAGCATCCGCCTCGACCAGCAGACCCTGCTCGACCGCGTGACCTACCGCTACGACGCGGCCAACCAACTGCTGGAGATCGGCTACCCCTCCGGCCTCGCCATCGGCTACCCGCGCAACGCCGGCGGCCAGGTCGCCAGCGTGACCCTGGCAGTAGGCGACAAGGCGCCGAGCCCCCTGGTCGGGCAGATCGCCTACCTGCCCTTCGGCCCGCTGCAGCGCCTGACCTGGGGCAACGGCATCGCCCTCAGCCGCGAGTACGACCAGGACTACCAACTGCTGCGGCAGAAGGTCGGCCCCTGGCAGAGCGACTACCAGCACGATGCCAATGGCAATATCCAGCAGCACCGCCATAGCCTCTGGGGCACCCTGGACTACCAGTACGACCCGCTGGACCGCCTGACCGAGGAACGCGGCGTCCAGGGCAGGCGCAGCTATGCCTACGACGCGGTCGGCAACCGCACCCAACGCAGCGACAACCCCGCCTCAGGCGGCACCGCCAGCAGCCAGGACTACCAGTACGCGCCCGACAGCAACCGATTGACCGCCATCGGCGCGCAAGCGGTGACCAGCGACGCCGCCGGCAACCTCACCCAGGACCGCGCCGCGCGCAAACTGGCCTACGACGCCCAGGGCCGCCTGCAAAGCGTCAGCCTCGACGGCCAGCAGGTCGCCGAATACCGCTACAACGCCCTCGGCCAGCGCATCGTCAAGCTCACCCCCGAGAGCGTCACCACCTACCTCTACGGTCCCGACGGCCAATTGCTCGGCGAAGCCGAACACGACGGCAGCGGCCGGAAACTGCGAGCCCAGTACTACCTGTGGCTGGACAGCCTGCCGCTGGCCACCATCGACGCCGACTACGACGCCCAGGGCAAGGTCGGCAACCCGACCCTGCTCTACCTCCATGGCGACCACCTCGACACCCCGCGCCTGGCCACCGACGCTAGCGGCCAGATCGCCTGGCAGTGGCAGTCCGACGCCTTCGGCCGCGGCGAAGCGCTGAGCCAGGGCAGCACCCAGGTCAACCTGCGCTTCCCCGGGCAGTACTACGATGCGGAGAGCGGGCTGCACTACAACTACTTCCGCGA
+
+##########
+##STEP 2##
+##########
+####Run in terminal
+####Extract pxrAcore.fasta sequence plus 1000nt downstream
+
+% python3 ./bin/extractsequence.py /Users/jonathanallen/Documents/genomes/fasta/PAcomplete /Users/jonathanallen/Desktop/pxr_allele_ID/pxrCcore.BLAST.txt /Users/jonathanallen/Desktop/pxr_allele_ID/pxrCcore.DNA.txt 0 1000
+
+
+##########
+##STEP 3##
+##########
+####Run in jupyter notebook
+####Translate extracted sequences and extract AAseq >850AA (using TranslateTool.ipynb)
+
+'''
+This script translates DNA in a single reading frame and truncates after the first stop codon
+It also selects for AAseqs that are longer than 400AA
+Input is a .fasta file of DNA sequences to translate
+Output is a .fasta file of AA sequences. 
+'''
+
+import os
+import sys
+from Bio.Seq import Seq
+#from Bio.Alphabet import generic_dna
+
+
+# script=sys.argv[0]
+# infilename=sys.argv[1] # THIS VALUE IS THE PATH/NAME of the fasta inputfile
+# outfilename=sys.argv[2] # THIS VALUE IS THE PATH/NAME of the output file you want    
+
+infilename="/Users/jonathanallen/Desktop/pxr_allele_ID/pxrCcore.DNA.txt"
+outfilename="/Users/jonathanallen/Desktop/pxr_allele_ID/pxrCcore.AA.txt"
+masterlist=[]
+tempfile = open(infilename,'r',encoding='latin-1')
+tempseq = []
+tempseq = tempfile.readlines()
+i=0
+for line in tempseq:
+    if line.startswith('>'):
+        tempdata=[]
+        header=tempseq[i].rstrip('\n')
+        sequence=Seq(tempseq[i+1].rstrip('\n'))
+        
+        try:
+            AA1=sequence.translate()
+        except TranslationError:
+             pass
+        
+        AA2=str(AA1).split("*")[0] #trims to the last ORF, removes anything before a stop codon
+        if len(AA2)<400:
+            pass
+        else:
+            tempdata.append(header)
+            tempdata.append(AA2)
+            masterlist.append(tempdata)
+    i=i+1
+
+# This code saves a file 
+output_file = open(outfilename, 'w')
+i=0
+
+for entry in masterlist:
+    print(masterlist[i][0]+'\n'+masterlist[i][1].rstrip('\n'), file=output_file)
+
+    i=i+1
+output_file.close()
+
+
+##########
+##STEP 4##
+##########
+####Run this in terminal
+####Run gt sequniq to get unique alleles
+
+% gt sequniq -o /Users/jonathanallen/Desktop/pxr_allele_ID/pxrAcore.AA.uniq.txt /Users/jonathanallen/Desktop/pxr_allele_ID/pxrAcore.AA.txt
+
+
+##########
+##STEP 5##
+##########
+####Align translated sequences using muscle
+
+% ./bin/muscle -in /Users/jonathanallen/Desktop/pxr_allele_ID/pxrAcore.AA.uniq.txt -o /Users/jonathanallen/Desktop/pxr_allele_ID/pxrAcore.AA.uniq.aln.txt -clw
+
+
+##########
+##STEP 6##
+##########
+####Manually curate unique pxrA alleles
+
+
+
+
+####BLAST Pipeline to Identify pxrB alleles
+
+##########
+##STEP 1##
+##########
+####Run this in terminal
+####BLAST using pxrBcore
+
+pxrB
+>pxrB.core (278 nt)
+ACTGCCCCAGCAGCAATTCCACCTTTACCTACGATGACCAGGGTCTGCTCACCAGCAAACGCGACAACAACGGCAACCTGACCACCTACCAGTACAACGCCCGTGGCCTGGAGACCTCGCGCACCGAGGCCGCCGGCACTGCGCAGGCGCGCACCATCACAACCGACTGGCACCCGACCCTGTTCCTCCCGGTGCAGGTCAGCGAGCCCGGCCGGATCACCCGCTACCAGTACGACGCCGAGGGACGCAAGACCGGCGAG
+
+
+
+##########
+##STEP 2##
+##########
+####Run in terminal
+####Extract pxrBcore.fasta sequence plus 1999nt upstream and 21 bp downstream (keeps pxrB in frame)
+
+
+##########
+##STEP 3##
+##########
+####Run in jupyter notebook
+####Translate extracted sequences and extract AAseq >4750AA (using TranslateTool.ipynb)
+
+'''
+This script translates DNA in a single reading frame and truncates after the first stop codon
+It also selects for AAseqs that are longer than 475AA
+Input is a .fasta file of DNA sequences to translate
+Output is a .fasta file of AA sequences. 
+'''
+
+import os
+import sys
+from Bio.Seq import Seq
+#from Bio.Alphabet import generic_dna
+
+
+# script=sys.argv[0]
+# infilename=sys.argv[1] # THIS VALUE IS THE PATH/NAME of the fasta inputfile
+# outfilename=sys.argv[2] # THIS VALUE IS THE PATH/NAME of the output file you want    
+
+infilename="/Users/jonathanallen/Desktop/pxr_manuscript_UPDATE/pxr_allele_ID/pxrBcore.DNA.txt"
+outfilename="/Users/jonathanallen/Desktop/pxr_manuscript_UPDATE/pxr_allele_ID/pxrBcore.AA.txt"
+masterlist=[]
+tempfile = open(infilename,'r',encoding='latin-1')
+tempseq = []
+tempseq = tempfile.readlines()
+i=0
+for line in tempseq:
+    if line.startswith('>'):
+        tempdata=[]
+        header=tempseq[i].rstrip('\n')
+        sequence=Seq(tempseq[i+1].rstrip('\n'))
+        
+        try:
+            AA1=sequence.translate()
+        except TranslationError:
+             pass
+        
+        AA2=str(AA1).split("*")[0] #trims to the last ORF, removes anything before a stop codon
+        if len(AA2)<475:
+            pass
+        else:
+            tempdata.append(header)
+            tempdata.append(AA2)
+            masterlist.append(tempdata)
+    i=i+1
+
+# This code saves a file 
+output_file = open(outfilename, 'w')
+i=0
+
+for entry in masterlist:
+    print(masterlist[i][0]+'\n'+masterlist[i][1].rstrip('\n'), file=output_file)
+
+    i=i+1
+output_file.close()
+
+
+
+##########
+##STEP 4##
+##########
+####Run this in terminal
+####Run gt sequniq to get unique alleles
+
+% gt sequniq -o /Users/jonathanallen/Desktop/pxr_allele_ID/pxrBcore.AA.uniq.txt /Users/jonathanallen/Desktop/pxr_allele_ID/pxrBcore.AA.txt
+
+
+##########
+##STEP 5##
+##########
+####Align translated sequences using muscle
+
+% ./bin/muscle -i /Users/jonathanallen/Desktop/pxr_allele_ID/pxrBcore.AA.uniq.txt -o /Users/jonathanallen/Desktop/pxr_allele_ID/pxrBcore.AA.uniq.aln.txt -clw
+
+
+##########
+##STEP 6##
+##########
+####Manually curate unique pxrB alleles and identify mutated strains

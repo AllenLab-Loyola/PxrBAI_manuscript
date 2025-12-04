@@ -1,0 +1,259 @@
+##############################################################################################
+##############################################################################################
+############   Characterization of the Genomic Landscape Downstream of PA2455.  ##############
+##############################################################################################
+##############################################################################################
+
+>PA2455
+ATGACCGAAGAACGCCTGCTGCGCCGCGACGAAATCCCCCTGGTCTGGGAGATCGACCGCAGCGAAGTGATCGGACACCTGTATTCCGTCGAGGCCGGCCAACTGGTGCTGCGCCCCGAGTTCTACGACATGCGCGGCTGGCCGGAGGGCGAGGCCGAGCACTACACGCCGATCCTGCTCGACTGCTTCGACCGCGGCGGCTGGTTCCTCGGCCTGTTCGACCAGGGCCGCCTGATCGGCGCGGTAGTCCTCGACCCACGCCGCCTCGGCCCCGAGCGCGACTGGCTGCAACTGAAGTTCCTCCACCTCAGCCACGCCTACCGCCGCCGCGGCCTCGGCGCCCACCTCTTCCACCTCGCCGCCACCCAGGCCCGCCACCTCGGCGCCAGCGCGCTCTACGTTTCGGCTACGCCGTCGCAGAACACGGTGGATTTTTATACGAGACTCGGATGCCGGCTGTGCATGGAACCGGATGAGGAGTTGTATCGGTTGGAGCCGGAGGATGTTCATCTGGTGTTCAATCTATAG
+
+##########
+##STEP 1##
+##########
+####Run in Terminal
+####Perform Blast using PA2455
+#### <code below>
+
+% python3 ./bin/blastscript.py /Users/jonathanallen/Documents/genomes/fasta/PAcomplete /Users/jonathanallen/Desktop/PA2455.txt /Users/jonathanallen/Desktop/PA2455.BLAST.txt 90 90
+
+
+#### <blastscript.py code below>
+
+#!/usr/bin/env python3
+'''
+	This program runs BLAST iteratively for a query sequence against genome assemblies within a specified directory.
+	
+	Requirements: Uses Python3; the BLAST directory must be located in your home directory => if different location or named different then change "/ncbi-blast-2.9.0+/" to correct directory location/name
+	
+	Input:	<Path/to/genome/assemblies> <Path/to/query/file.txt> <Path/to/output/file.txt> <perc_identity as Integer> <-qcov_hsp_perc as Integer>
+	Output: single file of query hits within all genomes contained within the specified directory, in BLAST output format 6
+	
+	Example ~ jonathanallen$ python3 ./bin/blastscript.py /Users/jonathanallen/Desktop/tempgenomes /Users/jonathanallen/Desktop/CDIquery.txt /Users/jonathanallen/Desktop/CDI_BLASTout.txt 90 90
+'''
+
+import os
+import sys
+import subprocess
+from pathlib import Path
+home = str(Path.home())
+os.makedirs(home + "/desktop/tempblast/", exist_ok=True)
+
+def main():
+	script=sys.argv[0]
+	genomes=sys.argv[1]
+	queryfile=sys.argv[2]
+	outputfile=sys.argv[3]
+	perid=sys.argv[4]
+	cov=sys.argv[5]
+
+	masterlist=[]
+	for subdir, dirs, files in os.walk(genomes):
+		for file in files:
+			filename=subdir+os.sep+file
+			print(filename)
+			subprocess.call(home+"/ncbi-blast-2.9.0+/bin/makeblastdb -in " + filename + " -out "+ home + "/Desktop/tempblast/temp -parse_seqids -dbtype nucl", shell=True)
+			subprocess.call(home+"/ncbi-blast-2.9.0+/bin/blastn -query " + queryfile + " -db "+home+"/Desktop/tempblast/temp -out "+home+"/Desktop/tempblast/tempblast.txt -outfmt 6 -perc_identity " + perid + " -qcov_hsp_perc " + cov, shell=True) 
+			blastresult = open(home+"/Desktop/tempblast/tempblast.txt").readlines()
+			for line in blastresult:
+				masterlist.append(line)
+            
+	output_file = open(outputfile, 'w')
+	i=0
+	for line in masterlist:
+		print(masterlist[i].rstrip('\n'), file=output_file)
+		i=i+1
+	output_file.close()
+
+if __name__ == '__main__':
+	main()
+
+
+##########
+##STEP 2##
+##########
+####Run in jupyter notebook
+####Generate a gbktrim file that includes the sequence 7000 bp from the end of the BLAST hit
+#### <code below>
+
+import os
+from pathlib import Path
+
+home = str(Path.home())
+os.makedirs(home + "/Desktop/PA2455/GBKtrim", exist_ok=True)
+os.makedirs(home + "/Desktop/PA2455/GBKtrim/temp", exist_ok=True)
+outfiledir=home+"/Desktop/PA2455/GBKtrim/"
+
+
+infile = "/Users/jonathanallen/Desktop/PA2455/PA2455.BLAST.txt"
+gbktrimfile=open(infile).readlines()
+masterfile=[]
+tempfile=[]
+reflist=[]
+x=0
+i=0
+
+for line in gbktrimfile:
+    if i<len(gbktrimfile)-x:
+        splitline=line.split("\t")
+        genome=splitline[1].split("*")[0]
+        tempstartcoord=splitline[8]
+        tempendcoord=splitline[9]
+        if tempstartcoord>tempendcoord:
+            startcoord=int(tempendcoord)-7000
+            endcoord=tempstartcoord
+        else:
+            startcoord=tempstartcoord
+            endcoord=int(tempendcoord)+7000
+        gbkfilename="/Users/jonathanallen/Documents/genomes/gbff/Pseudomonas_aeruginosa_refseq/"+genome+".gbff"
+        outfilename=outfiledir+genome+"_trim.gbk"
+        %run /Users/jonathanallen/bin/genbank_slicer.py -g $gbkfilename -o $outfilename -s $startcoord -e $endcoord
+    i=i+1
+
+
+##########
+##STEP 3##
+##########
+####Run in jupyter notebook
+####Prepare AGEnt and ClustAGE Inputfiles
+####create the -f and --annot files for CLUSTAGE and write the AGENT.sh script
+####spine.backbone.fasta file is the same PA2455 sequence (BLAST query)
+####This script scans the folder containing GBKtrim files generates an AGEnt shell script and, a ClustAGE Fasta file list, and an annotation file list.
+#### AGEnt will extract the sequence that is NOT the PA2455 sequence in the trimmed GBK files
+#### ClustAGE will identify and map out shared and unique regions from all the trimmed gbk files... this will highlight the different chromosomal locations where pxrBAI gene cluster is found. 
+#### <code below>
+
+import os
+import sys
+import subprocess
+from pathlib import Path
+home = str(Path.home())
+
+gbktrim="/Users/jonathanallen/Desktop/PA2455/gbktrim"
+
+AGENTlist=["# Change permissions on your computer so that you can run a shell script by typing: 'chmod 777 agent.sh' (without the quotes) at the terminal prompt"]
+ACCFASTAlist=[]
+ACCLOCIlist=[]
+
+for subdir, dirs, files in os.walk(gbktrim):
+    for file in files:
+        filename=subdir+os.sep+file
+        temp=filename.split("/")[-1].rstrip("_trim.gbk")
+        strain=temp[5:]
+        agent="perl /Users/jonathanallen/bin/AGEnt-0.3.1/AGEnt.pl -r /Users/jonathanallen/Desktop/PA2455/spine.backbone.fasta -q " + filename + " -n /Users/jonathanallen/bin/MUMmer3.23 -o " + "/Users/jonathanallen/Desktop/PA2455/agentoutput/"+strain+""
+        AGENTlist.append(agent)
+        accfasta="/Users/jonathanallen/Desktop/PA2455/agentoutput/"+strain+"."+strain+".accessory.fasta"+"\t"+strain
+        ACCFASTAlist.append(accfasta)
+        accloci="/Users/jonathanallen/Desktop/PA2455/agentoutput/"+strain+"."+strain+".accessory_loci.txt"+"\t"+strain
+        ACCLOCIlist.append(accloci)
+            
+output_file = open("/Users/jonathanallen/Desktop/PA2455/AGENT.sh", 'w')
+i=0
+for line in AGENTlist:
+    print(AGENTlist[i].rstrip('\n'), file=output_file)
+    i=i+1
+output_file.close()
+
+output_file = open("/Users/jonathanallen/Desktop/PA2455/ClustageAccFastaFiles.txt", 'w')
+i=0
+for line in ACCFASTAlist:
+    print(ACCFASTAlist[i].rstrip('\n'), file=output_file)
+    i=i+1
+output_file.close()
+
+output_file = open("/Users/jonathanallen/Desktop/PA2455/ClustageAccLociFiles.txt", 'w')
+i=0
+for line in ACCLOCIlist:
+    print(ACCLOCIlist[i].rstrip('\n'), file=output_file)
+    i=i+1
+output_file.close()
+
+
+##########
+##STEP 4##
+##########
+####Run in terminal
+#### RUN AGENT (on each *_trim.gbk file)
+#### Use the AGENT.sh script generated above to do this
+#### <code below>
+
+chmod 777 /Users/jonathanallen/Desktop/PA2455/AGENT.sh 
+/Users/jonathanallen/Desktop/PA2455/AGENT.sh
+
+
+##########
+##STEP 5##
+##########
+####Run in terminal
+#### Run ClustAGE
+#### Requires preassembled -f and --annot files from STEP 4
+####Notes:
+	-f format (example, file generated above
+	/path/to/accessory_elements_1.fasta <tab> genome_name_1 <tab> (optional)rank
+	/path/to/accessory_elements_2.fasta <tab> genome_name_2 <tab> (optional)rank
+
+	--annot format (example, file generated above
+	/path/to/gen1.accessory_loci.txt <tab> genome_name_1
+	/path/to/gen2.accessory_loci.txt <tab> genome_name_2
+#### <code below>
+
+% perl /Users/jonathanallen/bin/ClustAGE.osx.v0.8/ClustAGE.pl -f /Users/jonathanallen/Desktop/PA2455/ClustageAccFastaFiles.txt --annot /Users/jonathanallen/Desktop/PA2455/ClustageAccLociFiles.txt -o /Users/jonathanallen/Desktop/PA2455/clustageoutput/query -p 
+
+
+##########
+##STEP 6##
+##########
+####Run in R Studio
+####RUN Clustage.R pipeline for interrogation of clustageoutput_subelements.csv to:
+	1. Generate a Hierarchial Clutering plot to visualize subelement clustering.
+	2. Calculate Jaccard similarity index to determine strain relatedness
+	3. Generate a Heatmap of Jaccard similarity
+	4. Determine similarity cutoff to group similar strains - Jaccard > 0.5 finds all loci....
+	5. Generate a group output file with representative strains.
+	6. Convert representative trimmed gbk files to fasta format for BLAST (next step) using gb2fasta() command from the seqinr packag
+#### <code below>
+
+#INTRODUCTION----# Use this code to take ClustAGE subelements.csv output and determine strains that are identical in their AGEs#LOAD LIBRARIES----library(tidyverse)library(pheatmap)library(RColorBrewer)library(vegan)#IMPORT AND WRANGLE RAW DATA----#set our working directory, where are the files located.setwd("/Users/jonathanallen/Desktop/PA2455/clustageoutput")#input the subelements.csv filesubelements<-read.csv("query_subelements.csv")#remove the -rank column from the dataframe, part of ClustAGE outputdf<-subset(subelements,select = -rank)#convert the data frame to a data matrix and add back strains as rownamessampleLabels<-df$genome #save the sample labelsdmat<-data.matrix(df) # convert the data frame to a matrixdmat<-subset(dmat, select = -genome) # remove the genome columnrownames(dmat)<-c(sampleLabels) # add back the strain names as the row names. #generate a heatmap of the presence/absence data for all subelements and strainspheatmap(dmat,color=c("grey90","red"),cex=0.3,width=5, height=5, filename = "query.subelement.plot.pdf") # create a heatmap(presence/absence) of the subelements for all strains#GROUP STRAINS BY JACCARD SIMILARITY INDEX----#calculate the jaccard similarity index and generate a heatmap of identical strainsjaccard.mat<-1-data.matrix(vegdist(dmat,method="jaccard")) #calculate the jaccard similarity index for all strains# write.csv(jaccard.mat,file="jaccard.mat.csv", row.names=TRUE)pheatmap(jaccard.mat,color=colorRampPalette(c("black","white","red"))(50),cex=0.3,width=5, height=5,filename = "query.jaccard.heatmap.pdf") # generate a heatmap#Determine Strain groups based on similarity index cutoff.cutoff=0.7xy<- t(combn(colnames(jaccard.mat),2))jaccard.pivot<-data.frame(xy,dist=jaccard.mat[xy]) # essentially generates pivot tablejaccard.pivot.filter<-jaccard.pivot %>% dplyr::filter(dist>=cutoff,X1 != X2)donotkeep<-unique(jaccard.pivot.filter$X2)'%not_in%'<-function(x,table) is.na(match(x,table,nomatch=NA_integer_))jaccard.pivot.filter.screened<-dplyr::filter(jaccard.pivot.filter,X1 %not_in% donotkeep)write.csv(jaccard.pivot.filter.screened,file="query.groups.csv", row.names=TRUE)uniquegroups<-unique(jaccard.pivot.filter.screened$X1) #ID the group representitive strainswrite.csv(uniquegroups, file="unique.query.groups.csv",row.names=TRUE)
+
+#CONVERT GROUP GBK FILES TO FASTA FORMAT----library(seqinr)for (group in uniquegroups) {  entry<-str_c("/Users/jonathanallen/Desktop/pxr_locus_ID/gbktrim/Paer_",group,"_trim.gbk")  exit<-str_c("/Users/jonathanallen/Desktop/pxr_locus_ID/fastatrim/Paer_",group,"_trim.fasta")  gb2fasta(entry,exit)}
+
+
+##########
+##STEP 7##
+##########
+####Create a shell script to copy representative unique trimmed GenBank files to a dedicated folder to run Clinker
+#### <code below>
+
+# Copy unique GBKtrim files determined by the R Clustage analysis pipeline into a new folder for Clinker
+CopyMasterList=["#!/bin/zsh"]
+
+tempfile=open("/Users/jonathanallen/Desktop/PA2455/clustageoutput/unique.query.groups.csv",'r')
+tempfile2=tempfile.read().splitlines()
+directory1="/Users/jonathanallen/Desktop/PA2455/GBKtrim/"
+directory2="/Users/jonathanallen/Desktop/PA2455/UniqueGBKtrim/"
+i=1
+for i in range (1,len(tempfile2)):
+    splitline=tempfile2[i].split(',')
+    strain=splitline[1]
+    source=directory1+strain+"_trim.gbk"
+    destination=directory2+strain+"_trim.gbk"
+    line="cp " + source + " " + destination
+    CopyMasterList.append(line)
+    i=i+1
+
+output_file = open('/Users/jonathanallen/Desktop/PA2455/Copy.sh', 'w')
+i=0
+for line in CopyMasterList:
+    print(CopyMasterList[i].rstrip('\n'), file=output_file)
+    i=i+1
+output_file.close()
+
+
+##########
+##STEP 8##
+##########
+#### Run Clinker in miniconda3
+#### <code below>
+
+% source $HOME/miniconda3/bin/activate
+% conda activate clinker
+% clinker /Users/jonathanallen/Desktop/PA2455/UniqueGBKtrim/*.gbk -p

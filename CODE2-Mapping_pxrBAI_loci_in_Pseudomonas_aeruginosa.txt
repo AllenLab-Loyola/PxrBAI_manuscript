@@ -1,0 +1,230 @@
+##############################################################################################
+##############################################################################################
+##################     Mapping pxrBAI loci in Pseudomonas aeruginosa.   ######################
+##############################################################################################
+##############################################################################################
+
+>backbone_0001_length_2220, first ~2k nucleotides of pxrA (spine.backbone.fasta)
+ATGCGCATCCCCCCATACTTCCCCCGTCTCGGCGCCCTCGCCCTGGCCTGTGCCCTCGCCCTGCCCGCGCAGGCGGCCGAGCGCGCCTGGAGCTACAGCTACAACGCCCTCGGCCTGATCGAGCGCGCCGACGGTCCGCGCACCGATGTGCAGGACGTCACCCTCTATGCCTACGACAGTCGCGGCAACCTGACCCAGGTGACCAACGCCCTCGGCCAGGTCACCCGCCTCGGCGACTATGACGAGCGCGGCAAGCCCGGCAGCATCACCGATGCCAACGGCGTCACCAGCAGCCTCGCCTACACCGGCGTCGACGGCTGGCTGGCCTCCGTCAGCACCGCCGGCAGCACCACCCGCTTCGACTACGACGCGGTCGGCCAGATCACCCGCGTCACCCGTGGCGACGGCAGTTGGCTGAGCTACGAATACGACGACGCACGGCGCCTGGTGGCGATCGGCAACAACCTCGGCGAACGCCTCGAATACGACGTCGACACCAAGGGCAATCGCACCGCCCAGCGCATCAAGGACGCCAGCGGCAGCCTGGTGCGCCAGCAGCAATGGGCCTACGACGAGCTTGGCCGGCTGCTCCGTGCGGTCGGCGCCGGCGGCCAGACACGCAGCTTCGCCTACGACCTCAACGACAATCCGGTCGGCGAAACCAACCCGCGCCAGTTCGCCCACAGCCAGGCCTTCGACGCCCTCGACCGGCTGGTCGGCCAGAGCGATCCTCTCGGCGGCAAGACCCAACTCGCCTACGACGCCCAGGACAACCTCACCGAGGTCAAGGACCCGCGCGGCGTCACCACCCGCTACGAATACGACGGCCTCGGCAACCTGACCCGACTGGTCAGCCCGGACAGCGGCACCACCACCTTCGAGCACGACGCCGCCGGCAACGTCATCCGCCGCACCGACGCTCGCGGTGCGGTCACCGAGTATCGCTACGACGCCCTCAATCGCCTGATCGAGCGCCACTCGCCGAGCGACCCGAGCCTCGACGTACAGTACCGCTACGACCTCACCGCCGACGGCAACAAAGGCATCGGCCGCCTGGGCGCCATCGAAGGTGCCCGCGACAGCCTGGTGTACCGCTACGACGAGCGCGGCAACCTGGTCGAGCAGGTACGCAGCATCCGCCTCGACCAGCAGACCCTGCTCGACCGCGTGACCTACCGCTACGACGCGGCCAACCAACTGCTGGAGATCGGCTACCCCTCCGGCCTCGCCATCGGCTACCCGCGCAACGCCGGCGGCCAGGTCGCCAGCGTGACCCTGGCAGTAGGCGACAAGGCGCCGAGCCCCCTGGTCGGGCAGATCGCCTACCTGCCCTTCGGCCCGCTGCAGCGCCTGACCTGGGGCAACGGCATCGCCCTCAGCCGCGAGTACGACCAGGACTACCAACTGCTGCGGCAGAAGGTCGGCCCCTGGCAGAGCGACTACCAGCACGATGCCAATGGCAATATCCAGCAGCACCGCCATAGCCTCTGGGGCACCCTGGACTACCAGTACGACCCGCTGGACCGCCTGACCGAGGAACGCGGCGTCCAGGGCAGGCGCAGCTATGCCTACGACGCGGTCGGCAACCGCACCCAACGCAGCGACAACCCCGCCTCAGGCGGCACCGCCAGCAGCCAGGACTACCAGTACGCGCCCGACAGCAACCGATTGACCGCCATCGGCGCGCAAGCGGTGACCAGCGACGCCGCCGGCAACCTCACCCAGGACCGCGCCGCGCGCAAACTGGCCTACGACGCCCAGGGCCGCCTGCAAAGCGTCAGCCTCGACGGCCAGCAGGTCGCCGAATACCGCTACAACGCCCTCGGCCAGCGCATCGTCAAGCTCACCCCCGAGAGCGTCACCACCTACCTCTACGGTCCCGACGGCCAATTGCTCGGCGAAGCCGAACACGACGGCAGCGGCCGGAAACTGCGAGCCCAGTACTACCTGTGGCTGGACAGCCTGCCGCTGGCCACCATCGACGCCGACTACGACGCCCAGGGCAAGGTCGGCAACCCGACCCTGCTCTACCTCCATGGCGACCACCTCGACACCCCGCGCCTGGCCACCGACGCTAGCGGCCAGATCGCCTGGCAGTGGCAGTCCGACGCCTTCGGCCGCGGCGAAGCGCTGAGCCAGGGCAGCACCCAGGTCAACCTGCGCTTCCCCGGGCAGTACTACGATGCGGAGAGCGGGCTGCACTACAACTACTTCCGCGA
+
+
+##########
+##STEP 1##
+##########
+####Run in Terminal
+####Perform Blast using pxrcore (first 20000 nt of pxrA)
+#### <code below>
+
+% python3 ./bin/blastscript.py /Users/jonathanallen/Documents/genomes/fasta/PAcomplete /Users/jonathanallen/Desktop/pxrloci/pxrccore.txt /Users/jonathanallen/Desktop/pxrloci/pxrccore.BLAST.txt 90 90
+
+
+
+##########
+##STEP 2##
+##########
+####Run in jupyter notebook
+####Generate a gbktrim input file that includes all BLAST hits from above
+####Format is <genome filename without extension> tab <gbkstart> tab <gbkstop> tab <hitlength>
+####gbkstart is 5000 nucleotides upstream of BLAST subject start hit
+####gbkstop is 5000 nucleotides downstream of BLAST subject stop hit
+####hitlength is gbkstop-gbkstart
+#### <code below>
+
+infile="/Users/jonathanallen/Desktop/pxrloci/pxrccore.BLAST.txt"
+blastfile=open(infile).readlines()
+masterfile=[]
+tempfile=[]
+x=0
+i=0
+n=0
+for line in blastfile:
+    if i<len(blastfile)-x:
+        splitline=line.split("\t")
+        genome=splitline[1].split("*")[0]
+        substart=int(splitline[8])
+        substop=int(splitline[9])
+        if substop<substart:
+            gbkstart=int(substop)-5000
+            gbkstop=int(substart)+5000
+        else:
+            gbkstart=int(substart)-5000
+            gbkstop=int(substop)+5000
+        tempfile=genome+"\t"+str(gbkstart)+"\t"+str(gbkstop)
+        masterfile.append(tempfile)
+    i=i+1
+
+outfilename="/Users/jonathanallen/Desktop/pxrloci/pxrccore.BLAST.GBKtrim.input.txt"
+
+output_file = open(outfilename, 'w')
+i=0
+for entry in masterfile:
+    print(masterfile[i], file=output_file)
+    i=i+1
+output_file.close()  
+
+
+
+##########
+##STEP 3##
+##########
+####Run in jupyter notebook
+####Run Genbank_slicer to create trimmed genbank files for each BLAST hit
+####These are genbank formatted files that are restricted to the region 5000 nucleotides flanking the BLAST hit
+####Used to determine the different chromosomal locations of the pxr gene clusters
+####Use *GBKtrim.input.txt as the input file
+####Remember, Infile must be formated as <genome filename without extension> tab <gbkstart> tab <gbkstop> tab <hitlength>
+#### <code below>
+
+import os
+from pathlib import Path
+home = str(Path.home())
+os.makedirs(home + "/desktop/pxrloci/gbktrim/", exist_ok=True)
+outfiledir=home+"/desktop/pxrloci/gbktrim/"
+
+infile = "/Users/jonathanallen/Desktop/pxrloci/pxrccore.BLAST.GBKtrim.input.txt"
+gbktrimfile=open(infile).readlines()
+masterfile=[]
+tempfile=[]
+reflist=[]
+x=0
+i=0
+n=0
+
+for line in gbktrimfile:
+    if i<len(gbktrimfile)-x:
+        splitline=line.split("\t")
+        genome=splitline[0]
+        startcoord=int(splitline[1])-5
+        endcoord=int(splitline[2])+5
+        gbkfilename="/Users/jonathanallen/Documents/genomes/gbk/PAcomplete/"+genome+".gbk"
+        outfilename=outfiledir+genome+"_"+str(n)+"_trim.gbk"
+        %run /Users/jonathanallen/bin/genbank_slicer.py -g $gbkfilename -o $outfilename -s $startcoord -e $endcoord
+    i=i+1
+    n=n+1
+
+
+
+##########
+##STEP 4##
+##########
+####Run in jupyter notebook
+####Prepare AGEnt and ClustAGE Inputfiles
+####create the -f and --annot files for CLUSTAGE and write the AGENT.sh script
+####spine.backbone.fasta file is the same pxrC core sequence
+####This script scans the folder containing GBKtrim files generates an AGEnt shell script and, a ClustAGE Fasta file list, and an annotation file list.
+#### AGEnt will extract the sequence that is NOT the pxrC core sequence in the trimmed GBK files
+#### ClustAGE will identify and map out shared and unique regions from all the trimmed gbk files... this will highlight the different chromosomal locations where the pxr gene cluster is found. 
+#### <code below>
+
+import os
+import sys
+import subprocess
+from pathlib import Path
+home = str(Path.home())
+
+gbktrim="/Users/jonathanallen/Desktop/pxrloci/gbktrim"
+
+AGENTlist=["# Change permissions on your computer so that you can run a shell script by typing: 'chmod 777 agent.sh' (without the quotes) at the terminal prompt"]
+ACCFASTAlist=[]
+ACCLOCIlist=[]
+
+for subdir, dirs, files in os.walk(gbktrim):
+    for file in files:
+        filename=subdir+os.sep+file
+        temp=filename.split("/")[-1].rstrip("_trim.gbk")
+        strain=temp[5:]
+        agent="perl /Users/jonathanallen/bin/AGEnt-0.3.1/AGEnt.pl -r /Users/jonathanallen/Desktop/pxrloci/spine.backbone.fasta -q " + filename + " -n /Users/jonathanallen/bin/MUMmer3.23 -o " + "/Users/jonathanallen/Desktop/pxrloci/agentoutput/"+strain+""
+        AGENTlist.append(agent)
+        accfasta="/Users/jonathanallen/Desktop/pxrloci/agentoutput/"+strain+"."+strain+".accessory.fasta"+"\t"+strain
+        ACCFASTAlist.append(accfasta)
+        accloci="/Users/jonathanallen/Desktop/pxrloci/agentoutput/"+strain+"."+strain+".accessory_loci.txt"+"\t"+strain
+        ACCLOCIlist.append(accloci)
+            
+output_file = open("/Users/jonathanallen/Desktop/pxrloci/AGENT.sh", 'w')
+i=0
+for line in AGENTlist:
+    print(AGENTlist[i].rstrip('\n'), file=output_file)
+    i=i+1
+output_file.close()
+
+output_file = open("/Users/jonathanallen/Desktop/pxrloci/ClustageAccFastaFiles.txt", 'w')
+i=0
+for line in ACCFASTAlist:
+    print(ACCFASTAlist[i].rstrip('\n'), file=output_file)
+    i=i+1
+output_file.close()
+
+output_file = open("/Users/jonathanallen/Desktop/pxrloci/ClustageAccLociFiles.txt", 'w')
+i=0
+for line in ACCLOCIlist:
+    print(ACCLOCIlist[i].rstrip('\n'), file=output_file)
+    i=i+1
+output_file.close()
+
+
+
+##########
+##STEP 5##
+##########
+####Run in terminal
+#### RUN AGENT (on each *_trim.gbk file)
+#### Use the AGENT.sh script generated above to do this
+#### <code below>
+
+% chmod 777 /Users/jonathanallen/Desktop/pxrloci/AGENT.sh 
+% /Users/jonathanallen/Desktop/pxrloci/AGENT.sh
+
+
+
+##########
+##STEP 6##
+##########
+####Run in terminal
+#### Run ClustAGE
+#### Requires preassembled -f and --annot files from STEP 4
+####Notes:
+	-f format (example, file generated above
+	/path/to/accessory_elements_1.fasta <tab> genome_name_1 <tab> (optional)rank
+	/path/to/accessory_elements_2.fasta <tab> genome_name_2 <tab> (optional)rank
+
+	--annot format (example, file generated above
+	/path/to/gen1.accessory_loci.txt <tab> genome_name_1
+	/path/to/gen2.accessory_loci.txt <tab> genome_name_2
+#### <code below>
+
+
+% perl /Users/jonathanallen/bin/ClustAGE.osx.v0.8/ClustAGE.pl -f /Users/jonathanallen/Desktop/pxrloci/ClustageAccFastaFiles.txt --annot /Users/jonathanallen/Desktop/pxrloci/ClustageAccLociFiles.txt -o /Users/jonathanallen/Desktop/pxrloci/clustageoutput/query -p 
+
+
+##########
+##STEP 7##
+##########
+####Run in R Studio
+####RUN Clustage.R pipeline for interrogation of clustageoutput_subelements.csv to:
+	1. Generate a Hierarchial Clutering plot to visualize subelement clustering.
+	2. Calculate Jaccard similarity index to determine strain relatedness
+	3. Generate a Heatmap of Jaccard similarity
+	4. Determine similarity cutoff to group similar strains - Jaccard > 0.5 finds all loci....
+	5. Generate a group output file with representative strains.
+	6. Convert representative trimmed gbk files to fasta format for BLAST (next step) using gb2fasta() command from the seqinr package
+#### <code below>
+
+
+#INTRODUCTION----# Use this code to take ClustAGE subelements.csv output and determine strains that are identical in their AGEs#LOAD LIBRARIES----library(tidyverse)library(pheatmap)library(RColorBrewer)library(vegan)#IMPORT AND WRANGLE RAW DATA----#set our working directory, where are the files located.setwd("/Users/jonathanallen/Desktop/pxrloci/clustageoutput")#input the subelements.csv filesubelements<-read.csv("query_subelements.csv")#remove the -rank column from the dataframe, part of ClustAGE outputdf<-subset(subelements,select = -rank)#convert the data frame to a data matrix and add back strains as rownamessampleLabels<-df$genome #save the sample labelsdmat<-data.matrix(df) # convert the data frame to a matrixdmat<-subset(dmat, select = -genome) # remove the genome columnrownames(dmat)<-c(sampleLabels) # add back the strain names as the row names. #generate a heatmap of the presence/absence data for all subelements and strainspheatmap(dmat,color=c("grey90","red"),cex=0.3,width=5, height=5, filename = "query.subelement.plot.pdf") # create a heatmap(presence/absence) of the subelements for all strains#GROUP STRAINS BY JACCARD SIMILARITY INDEX----#calculate the jaccard similarity index and generate a heatmap of identical strainsjaccard.mat<-1-data.matrix(vegdist(dmat,method="jaccard")) #calculate the jaccard similarity index for all strains# write.csv(jaccard.mat,file="jaccard.mat.csv", row.names=TRUE)pheatmap(jaccard.mat,color=colorRampPalette(c("black","white","red"))(50),cex=0.3,width=5, height=5,filename = "query.jaccard.heatmap.pdf") # generate a heatmap#Determine Strain groups based on similarity index cutoff.cutoff=0.5xy<- t(combn(colnames(jaccard.mat),2))jaccard.pivot<-data.frame(xy,dist=jaccard.mat[xy]) # essentially generates pivot tablejaccard.pivot.filter<-jaccard.pivot %>% dplyr::filter(dist>=cutoff,X1 != X2)donotkeep<-unique(jaccard.pivot.filter$X2)'%not_in%'<-function(x,table) is.na(match(x,table,nomatch=NA_integer_))jaccard.pivot.filter.screened<-dplyr::filter(jaccard.pivot.filter,X1 %not_in% donotkeep)write.csv(jaccard.pivot.filter.screened,file="query.groups.csv", row.names=TRUE)uniquegroups<-unique(jaccard.pivot.filter.screened$X1) #ID the group representitive strainswrite.csv(uniquegroups, file="unique.query.groups.csv",row.names=TRUE)
+
+#CONVERT GROUP GBK FILES TO FASTA FORMAT----library(seqinr)for (group in uniquegroups) {  entry<-str_c("/Users/jonathanallen/Desktop/pxrloci/gbktrim/Paer_",group,"_trim.gbk")  exit<-str_c("/Users/jonathanallen/Desktop/pxrloci/fastatrim/Paer_",group,"_trim.fasta")  gb2fasta(entry,exit)}
+
+
+##########
+##STEP 8##
+##########
+####Run this step online using BLAST for each unique group
+####BLAST ends of trimmed_fasta sequence against PAO1 genome and group representative genome to identify chromosomal locations.
+####Manually inspected BLAST results for locus anchor genes 
+####Results
+	LOCUS 	 ANCHOR GENES			STRAIN
+	Locus 1: PA2452 and PA2466		B18_162
+	Locus 2: PA3372 and PA3366 (tRNA-Arg)	B18_163
+	Locus 3: PA4524 and PA4526 (tRNA-Thr)	DJ06_260
+	Locus 4: PA5149 and PA5150 (tRNA-Phe)	St1076_d123blood_39
+	Locus 5: PA3536 and PA3537		AR_0356_91
