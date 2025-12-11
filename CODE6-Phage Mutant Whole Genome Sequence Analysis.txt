@@ -1,0 +1,332 @@
+################################################################################################################################################
+#################################################################### DNA SEQUENCING ############################################################
+################################################################################################################################################
+
+DNA Sequencing (SeqCenter, Pittsburg, PA)
+400Mbp Illumina Sequencing (2 x 151bp reads) 
+ *.fastq.gz files were placed into a subdirectory for processing
+
+
+################################################################################################################################################
+#################################################################### Read filtering ############################################################
+################################################################################################################################################
+
+1. Create a Conda Environment to run FastQC, MultiQC and FastX Toolkit
+% source $HOME/miniconda3/bin/activate
+% conda install -c bioconda fastqc    
+% conda install -c bioconda multiqc
+% conda install -c bioconda fastp
+% conda install -c bioconda artemis
+% conda install -c bioconda tabix
+
+#Note: Artemis needs Java11 installed....this can be a pain
+
+% conda create --name rhs_phage 
+% conda activate rhs_phage 
+
+
+2. Itteritively Run fastqc on all reads and place the output into a specific output folder
+% fastqc -o ./FastQC ./reads/*.fastq.gz
+
+3. Run MultiQC to generate a summary report of the fastqc.html files
+% multiqc -d .  
+
+4.Run Fastp quality filtering
+#Generate shell script using FastP_parser.ipynb
+#syntax:
+fastp --in1 ./reads/A01B6_S230_R1_001.fastq.gz --out1 ./trimreads/A01B6_S230_R1_001_trimmed.fastq.gz --in2 ./reads/A01B6_S230_R2_001.fastq.gz --out2 ./trimreads/A01B6_S230_R2_001_trimmed.fastq.gz -D -g -h ./FastP/A01B6_S230.html -j ./FastP/A01B6_S230.json
+
+5. Itteritively ReRun fastqc on all trimmed reads and place the output into a specific output folder
+% fastqc -o ./FastQC2 ./trimreads/*.fastq.gz
+
+6. ReRun MultiQC to generate a summary report of the fastqc.html files
+% multiqc -d .  
+
+7.ReRun Fastp quality filtering
+#Generate shell script using FastP_parser.ipynb
+
+#syntax -- Added additional options for this second round:
+fastp --in1 ./reads/K02G2_S248_R1_001.fastq.gz --out1 ./trimreads/K02G2_S248_R1_001_trimmed.fastq.gz --in2 ./reads/K02G2_S248_R2_001.fastq.gz --out2 ./trimreads/K02G2_S248_R2_001.trimmed.fastq.gz -D --dup_calc_accuracy 5 -g -x -p -h ./FastP/K02G2_S248.html -j ./FastP/K02G2_S248.json
+
+8. Itteritively ReRun fastqc on all trimmed reads and place the output into a specific output folder
+% fastqc -o ./FastQC3 ./trimreads/*.fastq.gz
+
+9. ReRun MultiQC to generate a summary report of the fastqc.html files
+% multiqc -d .  
+
+#### Note: The Extra FastP step didn't change much. But overall FastP helped. 
+
+
+
+################################################################################################################################################
+############### ALIGNMENT CODE  - automated this in a shell script. see SamTools_Parser.ipynb for generateing samtools.sh file #################
+################################################################################################################################################
+
+1. Generate BWA index
+% /Users/jonathanallen/bwa-0.7.17/bwa index -a bwtsw ../referencegenome/GCF_003429205.1_ASM342920v1.fna
+
+2. Generate SAM alignment
+% /Users/jonathanallen/bwa-0.7.17/bwa mem -t 4 ../referencegenome/GCF_003429205.1_ASM342920v1.fna A01B6_S230_R1_001_trimmed.fastq.gz A01B6_S230_R2_001.trimmed.fastq.gz > aln-pe.sam
+
+3. Convert to BAM file
+% /Users/jonathanallen/samtools-1.9/samtools view -b -S aln-pe.sam -o aln-pe.bam 
+
+4. Sort the BAM file
+% /Users/jonathanallen/samtools-1.9/samtools sort aln-pe.bam -o aln-pe.sorted.bam
+
+5. Index the sorted BAM file
+% /Users/jonathanallen/samtools-1.9/samtools index aln-pe.sorted.bam 
+
+6. Identify genomic variants
+% /Users/jonathanallen/samtools-1.9/samtools mpileup -g -f ../referencegenome/GCF_003429205.1_ASM342920v1.fna aln-pe.sorted.bam -o aln-pe.variants.bcf
+
+% /Users/jonathanallen/bcftools-1.9/bcftools call -m -v aln-pe.variants.bcf -o ../artemis/aln-pe.variants.vcf
+
+7. View genomic variants
+% /Users/jonathanallen/bcftools-1.9/bcftools view aln-pe.variants.vcf 
+
+8. convert vcf file to correct format for artemis
+% bgzip aln-pe.variants.vcf 
+% tabix -p vcf aln-pe.variants.vcf.gz 
+
+9. Run Artemis to view alignment.
+% art
+
+########################################################################
+##########################  SamTools_Parser.ipynb ######################
+########################################################################
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "id": "bdac7868",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "\"\"\"\n",
+    "generate a shell script to automatically run Samtools on trimmedfastq.gz files. \n",
+    "\"\"\"\n",
+    "readdirectory=\"/Users/jonathanallen/Documents/SeqCenter/trimreads\"\n",
+    "stlist=[]\n",
+    "\n",
+    "import os\n",
+    "for subdir, dirs, files in os.walk(readdirectory):\n",
+    "    for file in files:\n",
+    "        if not file.startswith('.'):\n",
+    "            inputfile=subdir+os.sep+file\n",
+    "            filename=inputfile.split(\"/\")[-1]\n",
+    "            filenamesplit=filename.split(\"_\")\n",
+    "            if filenamesplit[2]==\"R1\":\n",
+    "                rootname=filenamesplit[0]+\"_\"+filenamesplit[1]\n",
+    "                templist=[]\n",
+    "                line1=\"/Users/jonathanallen/bwa-0.7.17/bwa mem -t 4 ./referencegenome/GCF_003429205.1_ASM342920v1.fna ./trimreads/\"+rootname+\"_R1_001_trimmed.fastq.gz ./trimreads/\"+rootname+\"_R2_001.trimmed.fastq.gz > ./trimreads/\"+rootname+\".sam\"\n",
+    "                line2=\"/Users/jonathanallen/samtools-1.9/samtools view -b -S ./trimreads/\"+rootname+\".sam -o ./trimreads/\"+rootname+\".bam\"\n",
+    "                line3=\"/Users/jonathanallen/samtools-1.9/samtools sort ./trimreads/\"+rootname+\".bam -o ./trimreads/\"+rootname+\".sorted.bam\"\n",
+    "                line4=\"/Users/jonathanallen/samtools-1.9/samtools index ./trimreads/\"+rootname+\".sorted.bam\"\n",
+    "                line5=\"/Users/jonathanallen/samtools-1.9/samtools mpileup -g -f ./referencegenome/GCF_003429205.1_ASM342920v1.fna ./trimreads/\"+rootname+\".sorted.bam -o ./trimreads/\"+rootname+\".variants.bcf\"\n",
+    "                line6=\"/Users/jonathanallen/bcftools-1.9/bcftools call -m -v ./trimreads/\"+rootname+\".variants.bcf -o ./artemis/\"+rootname+\".variants.vcf\"\n",
+    "                line7=\"bgzip ./artemis/\"+rootname+\".variants.vcf\"\n",
+    "                line8=\"tabix ./artemis/\"+rootname+\".variants.vcf.gz\"\n",
+    "                templist.append(line1)\n",
+    "                templist.append(line2)\n",
+    "                templist.append(line3)\n",
+    "                templist.append(line4)\n",
+    "                templist.append(line5)\n",
+    "                templist.append(line6)\n",
+    "                templist.append(line7)\n",
+    "                templist.append(line8)\n",
+    "                stlist.append(templist)\n",
+    "\n",
+    "output_file = open('/Users/jonathanallen/Desktop/samtools.sh', 'w')\n",
+    "i=0\n",
+    "for line in stlist:\n",
+    "    tempstring=\"\"\n",
+    "    for n in range(0,len(stlist[i])):\n",
+    "        tempstring=tempstring+stlist[i][n]+'\\n'\n",
+    "    output=tempstring+'\\n'\n",
+    "    output_file.write(output)\n",
+    "    i=i+1\n",
+    "output_file.close() "
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.9.20"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
+########################################################################
+
+
+
+
+################################################################################################################################################
+################################################## Extract all VCFs and annotate with .GFF file ################################################
+################################################################################################################################################
+Need all unzipped vcf files in a single folder
+Need the reference genome .GFF file
+Run VCFmappper.ipynb in jupyter notebook.
+
+
+########################################################################
+############################  VCFmapper.ipynb ##########################
+########################################################################
+
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "id": "efdbb8a4",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "'''\n",
+    "PURPOSE: To retrive a genbank locus ID and other data from VCF hits\n",
+    "Input: Path/to/directory/with/vcf files, each uncompressed\n",
+    "Input: Path/to/genome.gff file\n",
+    "Output: TSV text file with summarized data for each hit from the VCF file\n",
+    "        If within a coding region, listed as coding  and no second gene info\n",
+    "        If within an intergenic region, listed as intergenic, and includes the preceding and succeeding gene info\n",
+    "'''\n",
+    "\n",
+    "fnafile=\"/Users/jonathanallen/Desktop/GCF_003420205.1_ASM342920v1.fna\"\n",
+    "gfffile=\"/Users/jonathanallen/Desktop/GCF_003420205.1_ASM342920v1.gff\"\n",
+    "gbkfile=\"/Users/jonathanallen/Desktop/GCF_003420205.1_ASM342920v1.gbk\"\n",
+    "vcfdirectory=\"/Users/jonathanallen/Desktop/vcf\"\n",
+    "\n",
+    "tempfile2=open(gfffile,'r')\n",
+    "gff=tempfile2.readlines()\n",
+    "tempfile2.close\n",
+    "            \n",
+    "vcfmaster=[]\n",
+    "import os\n",
+    "for subdir, dirs, files in os.walk(vcfdirectory):\n",
+    "    for file in files:\n",
+    "        if not file.startswith('.'):\n",
+    "            inputfile=subdir+os.sep+file\n",
+    "            sample=file.split(\".\")[0]\n",
+    "            tempfile=open(inputfile,'r')\n",
+    "            vcf=tempfile.readlines()\n",
+    "            tempfile.close()\n",
+    "            \n",
+    "            i=0\n",
+    "            for i in range (0,len(vcf)):\n",
+    "                if not vcf[i].startswith(\"#\"):\n",
+    "                    vcftemp=\"\"\n",
+    "                    posid=vcf[i].split(\"\\t\")[1]\n",
+    "                    info=vcf[i].split(\"\\t\")[7]\n",
+    "                    mq=info.split(\";\")[-1]\n",
+    "                    \n",
+    "                    if info.split(\";\")[0].startswith(\"INDEL\"):\n",
+    "                        mt=info.split(\";\")[2]\n",
+    "                    else:\n",
+    "                        mt=info.split(\";\")[0]\n",
+    "                        \n",
+    "                    testcoord=int(posid)\n",
+    "\n",
+    "                    n=0\n",
+    "                    code=\"x\"\n",
+    "                    for line in gff:\n",
+    "                        if code==\"x\":\n",
+    "                            if not line.startswith(\"#\"):\n",
+    "                                splitline=line.split(\"\\t\")\n",
+    "                                if splitline[2]==\"gene\":\n",
+    "                                    tc0=splitline[3]\n",
+    "                                    tc1=splitline[4]\n",
+    "                                    if tc0 < tc1:\n",
+    "                                        genestart=int(tc0)\n",
+    "                                        genestop=int(tc1)\n",
+    "                                    else:\n",
+    "                                        genestart=int(tc1)\n",
+    "                                        genestop=int(tc0)\n",
+    "                                    r = range(genestart, genestop)\n",
+    "                                    if testcoord in r:\n",
+    "                                        code=\"coding\"\n",
+    "                                        info1=gff[n+1].strip(\"\\n\")\n",
+    "                                        info2=\"locus_tag;product\"\n",
+    "                                        \n",
+    "                                    elif testcoord<genestart:\n",
+    "                                        code=\"intergenic\"\n",
+    "                                        info1=gff[n-1].strip(\"\\n\")\n",
+    "                                        info2=gff[n+1].strip(\"\\n\")\n",
+    "                                    else:\n",
+    "                                        pass\n",
+    "                        else:\n",
+    "                            pass\n",
+    "                        n=n+1\n",
+    "\n",
+    "                    info1split=info1.split(\";\")\n",
+    "                    info2split=info2.split(\";\")\n",
+    "                    z=0\n",
+    "                    for z in range (0,len(info1split)):\n",
+    "                        if info1split[z].startswith(\"locus_tag\"):\n",
+    "                            locus_tag1=info1split[z]\n",
+    "                        elif info1split[z].startswith(\"product\"):\n",
+    "                            product1=info1split[z]\n",
+    "                        z=z+1\n",
+    "                    z=0\n",
+    "                    for z in range (0,len(info2split)):\n",
+    "                        if info2split[z].startswith(\"locus_tag\"):\n",
+    "                            locus_tag2=info2split[z]\n",
+    "                        elif info2split[z].startswith(\"product\"):\n",
+    "                            product2=info2split[z]     \n",
+    "                        z=z+1\n",
+    "\n",
+    "                    vcftemp=sample+\"\\t\"+posid+\"\\t\"+mt+\"\\t\"+mq+\"\\t\"+code+\"\\t\"+locus_tag1+\"\\t\"+product1.strip(\"\\n\")+\"\\t\"+locus_tag2+\"\\t\"+product2.strip(\"\\n\")\n",
+    "                    vcfmaster.append(vcftemp)\n",
+    "                i=i+1\n",
+    "                      \n",
+    "output_file = open('/Users/jonathanallen/Desktop/vcfcompiled.txt', 'w')\n",
+    "i=0\n",
+    "for line in vcfmaster:\n",
+    "    print(vcfmaster[i], file=output_file)\n",
+    "    i=i+1\n",
+    "output_file.close()\n",
+    "        "
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.9.20"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
+
+
+
