@@ -1,0 +1,51 @@
+###
+NOTE: Allele identities were mapped onto a recombination-corrected clonal phylogeny inferred using ClonalFrameML. 
+
+### This is R script.
+
+#Install and load correct packages
+library(phytools)
+library(phangorn)
+
+#Load Tree and allele data
+tree <-read.tree("PXR.output.labelled_tree.newick")
+traits<-read.csv("traitfile.csv")
+
+#Match data to tree tips
+traits<-traits[match(tree$tip.label,traits$Strain), ]
+traits<-traits[!is.na(traits$pxrBA_allele), ]
+tree <- drop.tip(tree, setdiff(tree$tip.label,traits$Strain))
+
+
+#Convert allele states to phyDat object
+allele_factor<-factor(traits$pxrBA_allele)
+allele_factor<-droplevels(allele_factor)
+allele_matrix<-as.matrix(allele_factor)
+rownames(allele_matrix)<-tree$tip.label
+allele_phyDat<-phyDat(allele_matrix,type = "USER", levels=unique(as.character(allele_factor)))
+
+#Calculate observed parsimony score
+obs_score <-parsimony(tree, allele_phyDat, method="fitch")
+
+
+#permutation test(global clustering)
+set.seed(123)
+nperm<-1000
+null_scores<-numeric(nperm)
+for(i in 1:nperm){
+  shuffled<-sample(as.character(allele_factor))
+  shuffled_matrix<-matrix(shuffled, ncol=1)
+  rownames(shuffled_matrix)<-tree$tip.label
+  print(unique(allele_matrix[,1]))
+  print(levels(allele_factor))
+  shuffled_phyDat<-phyDat(shuffled_matrix,type="USER",levels=unique(shuffled))
+  null_scores[i]<-parsimony(tree, shuffled_phyDat, method="fitch")
+}
+p_value<-mean(null_scores <= obs_score)
+
+effect_size<-mean(null_scores) / obs_score
+
+mean(null_scores)
+obs_score
+effect_size
+p_value
